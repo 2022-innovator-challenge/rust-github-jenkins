@@ -2,11 +2,12 @@
 
 #[macro_use]
 extern crate rocket;
+extern crate diesel;
 
-use web::schema::{gh_configurations::dsl::*, gh_pulls};
+use web::{schema::{gh_configurations::dsl::*, gh_pulls}, models::Pull, models::Configuration};
 use diesel::prelude::*;
-use serde_json::json;
 use rocket::http::RawStr;
+use rocket_contrib::json::Json;
 
 
 static DEFAULT_LOG_LEVEL: &str = "info";
@@ -17,7 +18,7 @@ fn index() -> &'static str {
 }
 
 #[get("/configurations")]
-fn configurations() -> String {
+fn configurations() -> Json<Vec<Configuration>> {
     
     // establish sql connection
     let sql_conn = web::establish_connection();
@@ -27,24 +28,24 @@ fn configurations() -> String {
         .load::<web::models::Configuration>(&sql_conn)
         .expect("Error loading configurations");
 
-    let configurations_json = serde_json::to_string(&configurations).expect("Unable to serialize to JSON.");
-    configurations_json.to_string()
+    Json(configurations)
 }
 
 
 #[get("/gh_pulls?<confid>")]
-fn pulls(confid: &RawStr) -> String {
+fn pulls(confid: &RawStr) -> Json<Vec<Pull>> {
     
     // establish sql connection
     let sql_conn = web::establish_connection();
-    
-    let configurations = gh_pulls.filter(gh_puls::conf_id.eq(confid))
+    let cid: i32 = confid.as_str().parse().unwrap();
+
+    let configurations = gh_pulls::table
+        .filter(gh_pulls::conf_id.eq(cid))
         .limit(1000)
         .load::<web::models::Pull>(&sql_conn)
         .expect("Error loading configurations");
 
-    let configurations_json = serde_json::to_string(&configurations).expect("Unable to serialize to JSON.");
-    configurations_json.to_string()
+    Json(configurations)
 }
 
 
